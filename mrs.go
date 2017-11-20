@@ -52,6 +52,34 @@ type DBH struct {
 	stack []string
 }
 
+func (dbh *DBH) QBegin() (*sql.Tx, error) {
+	if dbh.Tx == nil {
+		return dbh.Begin()
+	}
+	return dbh.Tx, dbh.Savepoint()
+}
+
+func (dbh *DBH) QCommit() error {
+	if len(dbh.stack) == 0 {
+		return dbh.Commit()
+	}
+	return dbh.ReleaseSavepoint()
+}
+
+func (dbh *DBH) QRollback() error {
+	if len(dbh.stack) == 0 {
+		return dbh.Rollback()
+	}
+	return dbh.RollbackSavepoint()
+}
+
+func (dbh *DBH) QCommitOrRollback(err error) error {
+	if err != nil {
+		return dbh.QRollback()
+	}
+	return dbh.QCommit()
+}
+
 func (dbh *DBH) Begin() (*sql.Tx, error) {
 	tx, err := dbh.DBM.DB.Begin()
 	if err != nil {
@@ -174,4 +202,34 @@ func (dbh *DBH) Exec(query string, args ...interface{}) (sql.Result, error) {
 	}
 
 	return stmt.Exec(args...)
+}
+
+func (dbh *DBH) Query(query string, args ...interface{}) (*sql.Rows, error) {
+	stmt, err := dbh.Stmt(query)
+	if err != nil {
+		return nil, err
+	}
+
+	return stmt.Query(args...)
+}
+
+func (dbh *DBH) QueryRow(query string, args ...interface{}) *Row {
+	stmt, err := dbh.Stmt(query)
+	if err != nil {
+		return &Row{Err: err}
+	}
+
+	return &Row{Row: stmt.QueryRow(args...)}
+}
+
+type Row struct {
+	Row *sql.Row
+	Err error
+}
+
+func (row *Row) Scan(args ...interface{}) error {
+	if row.Err != nil {
+		return row.Err
+	}
+	return row.Row.Scan(args...)
 }
