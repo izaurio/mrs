@@ -67,13 +67,12 @@ func TestDBH_Savepoint(t *testing.T) {
 	assert.Nil(err)
 	defer db.Close()
 
-	// dirty hook: test without transaction
-	// sqkmock isn't able to use transaction for prepared statements
-	mock_prepared := mock.ExpectPrepare("SAVEPOINT mrs_1")
-	mock_prepared.ExpectExec().WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectBegin()
+	mock.ExpectPrepare("SAVEPOINT mrs_1").ExpectExec().WillReturnResult(sqlmock.NewResult(0, 0))
 
 	dbm := NewDBM(db)
 	dbh := dbm.DBH()
+	dbh.Begin()
 	err = dbh.Savepoint()
 
 	assert.Nil(err)
@@ -87,13 +86,13 @@ func TestDBH_ReleaseSavepoint(t *testing.T) {
 	assert.Nil(err)
 	defer db.Close()
 
-	mock_prepared := mock.ExpectPrepare("SAVEPOINT mrs_1")
-	mock_prepared.ExpectExec().WillReturnResult(sqlmock.NewResult(0, 0))
-	mock_prepared = mock.ExpectPrepare("RELEASE SAVEPOINT mrs_1")
-	mock_prepared.ExpectExec().WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectBegin()
+	mock.ExpectPrepare("SAVEPOINT mrs_1").ExpectExec().WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectPrepare("RELEASE SAVEPOINT mrs_1").ExpectExec().WillReturnResult(sqlmock.NewResult(0, 0))
 
 	dbm := NewDBM(db)
 	dbh := dbm.DBH()
+	dbh.Begin()
 	err = dbh.Savepoint()
 
 	assert.Nil(err)
@@ -111,13 +110,13 @@ func TestDBH_RollbackSavepoint(t *testing.T) {
 	assert.Nil(err)
 	defer db.Close()
 
-	mock_prepared := mock.ExpectPrepare("SAVEPOINT mrs_1")
-	mock_prepared.ExpectExec().WillReturnResult(sqlmock.NewResult(0, 0))
-	mock_prepared = mock.ExpectPrepare("ROLLBACK TO SAVEPOINT mrs_1")
-	mock_prepared.ExpectExec().WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectBegin()
+	mock.ExpectPrepare("SAVEPOINT mrs_1").ExpectExec().WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectPrepare("ROLLBACK TO SAVEPOINT mrs_1").ExpectExec().WillReturnResult(sqlmock.NewResult(0, 0))
 
 	dbm := NewDBM(db)
 	dbh := dbm.DBH()
+	dbh.Begin()
 	err = dbh.Savepoint()
 
 	assert.Nil(err)
@@ -134,7 +133,7 @@ func TestDBH_Stmt(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	assert.Nil(err)
 	defer db.Close()
-	query := "SELECT 1"
+	query := "SELECT 1 as foo"
 
 	mock.ExpectPrepare(query)
 
@@ -152,10 +151,10 @@ func TestDBH_Exec(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	assert.Nil(err)
 	defer db.Close()
-	query := "SELECT 1"
+	query := "SELECT 1 as foo"
 
 	mock.ExpectPrepare(query)
-	mock.ExpectExec(query).WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec(query).WillReturnResult(sqlmock.NewResult(0, 1))
 
 	dbm := NewDBM(db)
 	dbh := dbm.DBH()
