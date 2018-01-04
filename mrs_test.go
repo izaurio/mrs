@@ -14,7 +14,7 @@ func TestDBH_Begin(t *testing.T) {
 
 	mock.ExpectBegin()
 
-	dbm := NewDBM(db)
+	dbm := NewDBM(db, &NopLogger{t})
 	dbh := dbm.DBH()
 	tx, err := dbh.Begin()
 
@@ -32,7 +32,7 @@ func TestDBH_Commit(t *testing.T) {
 	mock.ExpectBegin()
 	mock.ExpectCommit()
 
-	dbm := NewDBM(db)
+	dbm := NewDBM(db, &NopLogger{t})
 	dbh := dbm.DBH()
 	dbh.Begin()
 	err = dbh.Commit()
@@ -51,7 +51,7 @@ func TestDBH_Rollback(t *testing.T) {
 	mock.ExpectBegin()
 	mock.ExpectRollback()
 
-	dbm := NewDBM(db)
+	dbm := NewDBM(db, &NopLogger{t})
 	dbh := dbm.DBH()
 	dbh.Begin()
 	err = dbh.Rollback()
@@ -59,73 +59,6 @@ func TestDBH_Rollback(t *testing.T) {
 	assert.Nil(err)
 	assert.Nil(mock.ExpectationsWereMet())
 	assert.Nil(dbh.Tx)
-}
-
-func TestDBH_Savepoint(t *testing.T) {
-	assert := assert.New(t)
-	db, mock, err := sqlmock.New()
-	assert.Nil(err)
-	defer db.Close()
-
-	mock.ExpectBegin()
-	mock.ExpectPrepare("SAVEPOINT mrs_1").ExpectExec().WillReturnResult(sqlmock.NewResult(0, 0))
-
-	dbm := NewDBM(db)
-	dbh := dbm.DBH()
-	dbh.Begin()
-	err = dbh.Savepoint()
-
-	assert.Nil(err)
-	assert.Nil(mock.ExpectationsWereMet())
-	assert.Equal(1, len(dbh.stack))
-}
-
-func TestDBH_ReleaseSavepoint(t *testing.T) {
-	assert := assert.New(t)
-	db, mock, err := sqlmock.New()
-	assert.Nil(err)
-	defer db.Close()
-
-	mock.ExpectBegin()
-	mock.ExpectPrepare("SAVEPOINT mrs_1").ExpectExec().WillReturnResult(sqlmock.NewResult(0, 0))
-	mock.ExpectPrepare("RELEASE SAVEPOINT mrs_1").ExpectExec().WillReturnResult(sqlmock.NewResult(0, 0))
-
-	dbm := NewDBM(db)
-	dbh := dbm.DBH()
-	dbh.Begin()
-	err = dbh.Savepoint()
-
-	assert.Nil(err)
-
-	err = dbh.ReleaseSavepoint()
-
-	assert.Nil(err)
-	assert.Nil(mock.ExpectationsWereMet())
-	assert.Equal(0, len(dbh.stack))
-}
-
-func TestDBH_RollbackSavepoint(t *testing.T) {
-	assert := assert.New(t)
-	db, mock, err := sqlmock.New()
-	assert.Nil(err)
-	defer db.Close()
-
-	mock.ExpectBegin()
-	mock.ExpectPrepare("SAVEPOINT mrs_1").ExpectExec().WillReturnResult(sqlmock.NewResult(0, 0))
-	mock.ExpectPrepare("ROLLBACK TO SAVEPOINT mrs_1").ExpectExec().WillReturnResult(sqlmock.NewResult(0, 0))
-
-	dbm := NewDBM(db)
-	dbh := dbm.DBH()
-	dbh.Begin()
-	err = dbh.Savepoint()
-
-	assert.Nil(err)
-
-	err = dbh.RollbackSavepoint()
-
-	assert.Nil(err)
-	assert.Nil(mock.ExpectationsWereMet())
-	assert.Equal(0, len(dbh.stack))
 }
 
 func TestDBH_Stmt(t *testing.T) {
@@ -137,7 +70,7 @@ func TestDBH_Stmt(t *testing.T) {
 
 	mock.ExpectPrepare(query)
 
-	dbm := NewDBM(db)
+	dbm := NewDBM(db, &NopLogger{t})
 	dbh := dbm.DBH()
 	stmt, err := dbh.Stmt(query)
 
@@ -156,10 +89,19 @@ func TestDBH_Exec(t *testing.T) {
 	mock.ExpectPrepare(query)
 	mock.ExpectExec(query).WillReturnResult(sqlmock.NewResult(0, 1))
 
-	dbm := NewDBM(db)
+	dbm := NewDBM(db, &NopLogger{t})
 	dbh := dbm.DBH()
 	_, err = dbh.Exec(query)
 
 	assert.Nil(err)
 	assert.Nil(mock.ExpectationsWereMet())
+}
+
+type NopLogger struct {
+	T *testing.T
+}
+
+func (np NopLogger) Log(args ...interface{}) error {
+	np.T.Log(args...)
+	return nil
 }
