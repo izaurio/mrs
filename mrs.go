@@ -115,6 +115,14 @@ func (dbh *DBH) Rollback() error {
 	return nil
 }
 
+func (dbh *DBH) CommitOrRollback(err error) error {
+	if err != nil {
+		return errors.WithStack(dbh.Rollback())
+	}
+
+	return errors.WithStack(dbh.Commit())
+}
+
 func (dbh *DBH) Prepare(query string) (*sql.Stmt, error) {
 	defer func(start time.Time) {
 		dbh.DBM.Logger.Log(

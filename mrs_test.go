@@ -1,9 +1,11 @@
 package mrs
 
 import (
+	"errors"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/DATA-DOG/go-sqlmock.v1"
-	"testing"
 )
 
 func TestDBH_Begin(t *testing.T) {
@@ -59,6 +61,33 @@ func TestDBH_Rollback(t *testing.T) {
 	assert.Nil(err)
 	assert.Nil(mock.ExpectationsWereMet())
 	assert.Nil(dbh.Tx)
+}
+
+func TestDBH_CommitOrRollback(t *testing.T) {
+	assert := assert.New(t)
+	db, mock, err := sqlmock.New()
+	assert.Nil(err)
+	defer db.Close()
+
+	mock.ExpectBegin()
+	mock.ExpectCommit()
+	mock.ExpectBegin()
+	mock.ExpectRollback()
+
+	dbm := NewDBM(db, &NopLogger{t})
+	dbh := dbm.DBH()
+
+	dbh.Begin()
+	err = dbh.CommitOrRollback(nil)
+	assert.Nil(err)
+
+	dbh.Begin()
+	err = dbh.CommitOrRollback(errors.New("fail"))
+	assert.Nil(err)
+
+	assert.Nil(mock.ExpectationsWereMet())
+	assert.Nil(dbh.Tx)
+
 }
 
 func TestDBH_Stmt(t *testing.T) {
